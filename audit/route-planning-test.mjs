@@ -1,0 +1,31 @@
+import assert from "node:assert/strict";
+import {planRouteChange,stayFitsTrip,stayRangesOverlap} from "../lib/route-planning.ts";
+
+const zone="America/Vancouver";
+const trip={id:"j",kind:"jamaat",parentId:null,title:"Weekend",startAt:"2026-10-02",endAt:"2026-10-04",status:"ready",data:{timeZone:zone,route:"Three stops"},updatedAt:"v1"};
+const stay=(id,day,place,hostStatus="proposed")=>({id,kind:"stay",parentId:"j",title:`Stop ${id}`,startAt:`2026-10-${day}T09:00:00-07:00`,endAt:`2026-10-${day}T17:00:00-07:00`,status:"planned",data:{placeId:place,hostStatus,timeZone:zone},updatedAt:"v1"});
+const children=[stay("s1","02","p1","confirmed"),stay("s2","03","p2"),stay("s3","04","p3"),{id:"d",kind:"mashwara",parentId:"j",title:"Daily",startAt:"2026-10-02",endAt:null,status:"planned",data:{daily:true,date:"2026-10-02",locationId:"p1"},updatedAt:"v1"},{id:"a",kind:"assignment",parentId:"j",title:"Khidmah",startAt:null,endAt:null,status:"planned",data:{date:"2026-10-02",personId:"person"},updatedAt:"v1"}];
+const checks=[];
+function check(name,test){assert.ok(test,name);checks.push(name);}
+const move=planRouteChange(trip,trip,children,{startAt:"2026-10-09",endAt:"2026-10-11",stayMode:"shift",planMode:"shift",reconfirm:true,retainHistory:true},zone);
+check("all three stops move with the weekend",["s1","s2","s3"].every((id,index)=>move.find(row=>row.id===id)?.startAt.includes(`2026-10-${String(9+index).padStart(2,"0")}`)));
+check("confirmed host needs reconfirmation",move.find(row=>row.id==="s1")?.data.hostStatus==="contacted");
+check("daily plan and assignment move together",move.find(row=>row.id==="d")?.data.date==="2026-10-09"&&move.find(row=>row.id==="a")?.data.date==="2026-10-09");
+check("daily venue follows moved first stop",move.find(row=>row.id==="d")?.data.locationId==="p1");
+check("trip notes and duty person survive",move.find(row=>row.id==="a")?.data.personId==="person"&&move.find(row=>row.id==="j")?.data.route==="Three stops");
+assert.throws(()=>planRouteChange(trip,trip,children,{startAt:"2026-10-09",endAt:"2026-10-11",stayMode:"keep",planMode:"keep",retainHistory:true},zone),/outside/);
+check("keeping old stays outside changed trip is rejected",true);
+assert.throws(()=>planRouteChange(trip,trip,children,{startAt:"2026-10-09",endAt:"2026-10-11",stayMode:"shift",planMode:"shift",retainHistory:true},zone),/reconfirmation/);
+check("moving confirmed host without reconfirmation is rejected",true);
+assert.throws(()=>planRouteChange(trip,trip,children,{startAt:"2026-10-09",endAt:"2026-10-11",stayMode:"shift",planMode:"shift",reconfirm:true},zone),/historical records/);
+check("trip move requires explicit historical-date decision",true);
+check("timed stay ending at next midnight fits its arrival day",stayFitsTrip("2026-10-02T20:00:00-07:00","2026-10-03T00:00:00-07:00","2026-10-02","2026-10-02",zone));
+check("adjacent timed stays do not overlap",!stayRangesOverlap({startAt:"2026-10-02T20:00:00-07:00",endAt:"2026-10-02T21:00:00-07:00"},{startAt:"2026-10-02T21:00:00-07:00",endAt:"2026-10-02T22:00:00-07:00"},zone));
+const movedStay=planRouteChange(children[1],trip,children,{startAt:"2026-10-04T09:00:00-07:00",endAt:"2026-10-04T17:00:00-07:00",planMode:"keep",placeId:"p2",hostStatus:"proposed",conditions:"New entry"},zone);
+check("stay move retains unrelated stops",movedStay.some(row=>row.id==="s2")&&!movedStay.some(row=>row.id==="s1"));
+check("stay update saves local conditions",movedStay.find(row=>row.id==="s2")?.data.conditions==="New entry");
+const conditionsOnly=planRouteChange(children[0],trip,children,{startAt:"2026-10-02T16:00:00Z",endAt:"2026-10-03T00:00:00Z",placeId:"p1",hostStatus:"confirmed",conditions:"Confirmed instructions"},zone);
+check("equivalent UTC offsets do not count as a move",conditionsOnly.length===1&&conditionsOnly[0].id==="s1"&&conditionsOnly[0].data.hostStatus==="confirmed"&&conditionsOnly[0].data.conditions==="Confirmed instructions");
+const preserved=planRouteChange(children[1],trip,children,{startAt:"2026-10-04T10:00:00-07:00",endAt:children[1].endAt,planMode:"keep",preserveDuration:true,placeId:"p2",hostStatus:"proposed",conditions:""},zone);
+check("stay move preserves elapsed duration by choice",Date.parse(preserved.find(row=>row.id==="s2").endAt)-Date.parse(preserved.find(row=>row.id==="s2").startAt)===8*3600000);
+console.log(`${checks.length} Task 10 route planning checks passed`);

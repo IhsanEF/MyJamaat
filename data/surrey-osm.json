@@ -1,0 +1,61 @@
+{
+  "retrievedAt": "2026-09-30",
+  "places": [
+    {
+      "osmId": "node/9063283315",
+      "name": "Al-Mustafa Academy",
+      "address": "5441 125A Street",
+      "lat": 49.1015267,
+      "lon": -122.8748044
+    },
+    {
+      "osmId": "node/9295027831",
+      "name": "White Rock Muslim Association - Musallah",
+      "address": "15531 24 Avenue Surrey",
+      "lat": 49.0471591,
+      "lon": -122.7919309
+    },
+    {
+      "osmId": "way/446566547",
+      "name": "Masjid al-Huda",
+      "address": "14136 Grosvernor Road Surrey",
+      "lat": 49.2069635,
+      "lon": -122.8300311
+    },
+    {
+      "osmId": "way/456253681",
+      "name": "Surrey Jami'a Mosque",
+      "address": "12407 72 Avenue",
+      "lat": 49.1342216,
+      "lon": -122.8786528
+    },
+    {
+      "osmId": "way/550368196",
+      "name": "Fraser Valley Jamatkhanna",
+      "address": "15177 68 Avenue",
+      "lat": 49.1269795,
+      "lon": -122.8015885
+    },
+    {
+      "osmId": "way/550569008",
+      "name": "Baitur Rahman Mosque",
+      "address": "9570 River Road Delta",
+      "lat": 49.152624,
+      "lon": -122.9578042
+    },
+    {
+      "osmId": "way/895128863",
+      "name": "Masjid-ur-Raman",
+      "address": "13585 62 Avenue",
+      "lat": 49.1156169,
+      "lon": -122.8457744
+    },
+    {
+      "osmId": "way/1420282940",
+      "name": "Masjid Al Mukaromah",
+      "address": "13578 Holland Commons Surrey",
+      "lat": 49.182755,
+      "lon": -122.846777
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+-- Deterministic disposable Surrey pilot load fixture; never apply to production.
+WITH RECURSIVE seq(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM seq WHERE n<500)
+INSERT INTO people (id,markaz_id,auth_id,name,phone,email,role,claimed_role,created_at) SELECT 'p-bulk-'||printf('%04d',n),'markaz-surrey',NULL,'Synthetic person '||printf('%04d',n),'+1 604 555 '||printf('%04d',n),NULL,'worker','worker','2026-10-01T00:00:00.000Z' FROM seq;
+WITH RECURSIVE seq(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM seq WHERE n<500)
+INSERT INTO memberships (id,markaz_id,jamaat_id,person_id,role,permissions,created_at) SELECT 'm-bulk-w-'||printf('%04d',n),'markaz-surrey','jamaat-weekend','p-bulk-'||printf('%04d',n),'member','{}','2026-10-01T00:00:00.000Z' FROM seq;
+WITH RECURSIVE seq(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM seq WHERE n<500)
+INSERT INTO memberships (id,markaz_id,jamaat_id,person_id,role,permissions,created_at) SELECT 'm-bulk-m-'||printf('%04d',n),'markaz-surrey','jamaat-mastooraat','p-bulk-'||printf('%04d',n),'member','{}','2026-10-01T00:00:00.000Z' FROM seq;
+WITH RECURSIVE seq(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM seq WHERE n<500)
+INSERT INTO memberships (id,markaz_id,jamaat_id,person_id,role,permissions,created_at) SELECT 'm-bulk-p-'||printf('%04d',n),'markaz-surrey','jamaat-pending','p-bulk-'||printf('%04d',n),'member','{}','2026-10-01T00:00:00.000Z' FROM seq;
+WITH RECURSIVE seq(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM seq WHERE n<500)
+INSERT INTO objects (id,markaz_id,kind,parent_id,title,start_at,status,data,created_by,created_at,updated_at) SELECT 'bulk-place-'||printf('%05d',n),'markaz-surrey','place',NULL,'Synthetic place '||printf('%05d',n),NULL,'planned','{"type":"masjid","address":"Surrey synthetic"}','p-admin','2026-10-01T00:00:00.000Z','2026-10-01T00:00:00.000Z' FROM seq;
+WITH RECURSIVE seq(n) AS (SELECT 501 UNION ALL SELECT n+1 FROM seq WHERE n<1000)
+INSERT INTO objects (id,markaz_id,kind,parent_id,title,start_at,status,data,created_by,created_at,updated_at) SELECT 'bulk-place-'||printf('%05d',n),'markaz-surrey','place',NULL,'Synthetic place '||printf('%05d',n),NULL,'planned','{"type":"masjid","address":"Surrey synthetic"}','p-admin','2026-10-01T00:00:00.000Z','2026-10-01T00:00:00.000Z' FROM seq;
+WITH RECURSIVE seq(n) AS (SELECT 1001 UNION ALL SELECT n+1 FROM seq WHERE n<1500)
+INSERT INTO objects (id,markaz_id,kind,parent_id,title,start_at,status,data,created_by,created_at,updated_at) SELECT 'bulk-place-'||printf('%05d',n),'markaz-surrey','place',NULL,'Synthetic place '||printf('%05d',n),NULL,'planned','{"type":"masjid","address":"Surrey synthetic"}','p-admin','2026-10-01T00:00:00.000Z','2026-10-01T00:00:00.000Z' FROM seq;
+WITH RECURSIVE seq(n) AS (SELECT 1501 UNION ALL SELECT n+1 FROM seq WHERE n<2000)
+INSERT INTO objects (id,markaz_id,kind,parent_id,title,start_at,status,data,created_by,created_at,updated_at) SELECT 'bulk-place-'||printf('%05d',n),'markaz-surrey','place',NULL,'Synthetic place '||printf('%05d',n),NULL,'planned','{"type":"masjid","address":"Surrey synthetic"}','p-admin','2026-10-01T00:00:00.000Z','2026-10-01T00:00:00.000Z' FROM seq;
+WITH RECURSIVE seq(n) AS (SELECT 2001 UNION ALL SELECT n+1 FROM seq WHERE n<2500)
+INSERT INTO objects (id,markaz_id,kind,parent_id,title,start_at,status,data,created_by,created_at,updated_at) SELECT 'bulk-place-'||printf('%05d',n),'markaz-surrey','place',NULL,'Synthetic place '||printf('%05d',n),NULL,'planned','{"type":"masjid","address":"Surrey synthetic"}','p-admin','2026-10-01T00:00:00.000Z','2026-10-01T00:00:00.000Z' FROM seq;
+WITH RECURSIVE seq(n) AS (SELECT 2501 UNION ALL SELECT n+1 FROM seq WHERE n<3000)
+INSERT INTO objects (id,markaz_id,kind,parent_id,title,start_at,status,data,created_by,created_at,updated_at) SELECT 'bulk-place-'||printf('%05d',n),'markaz-surrey','place',NULL,'Synthetic place '||printf('%05d',n),NULL,'planned','{"type":"masjid","address":"Surrey synthetic"}','p-admin','2026-10-01T00:00:00.000Z','2026-10-01T00:00:00.000Z' FROM seq;
+WITH RECURSIVE seq(n) AS (SELECT 3001 UNION ALL SELECT n+1 FROM seq WHERE n<3500)
+INSERT INTO objects (id,markaz_id,kind,parent_id,title,start_at,status,data,created_by,created_at,updated_at) SELECT 'bulk-place-'||printf('%05d',n),'markaz-surrey','place',NULL,'Synthetic place '||printf('%05d',n),NULL,'planned','{"type":"masjid","address":"Surrey synthetic"}','p-admin','2026-10-01T00:00:00.000Z','2026-10-01T00:00:00.000Z' FROM seq;
+WITH RECURSIVE seq(n) AS (SELECT 3501 UNION ALL SELECT n+1 FROM seq WHERE n<4000)
+INSERT INTO objects (id,markaz_id,kind,parent_id,title,start_at,status,data,created_by,created_at,updated_at) SELECT 'bulk-place-'||printf('%05d',n),'markaz-surrey','place',NULL,'Synthetic place '||printf('%05d',n),NULL,'planned','{"type":"masjid","address":"Surrey synthetic"}','p-admin','2026-10-01T00:00:00.000Z','2026-10-01T00:00:00.000Z' FROM seq;
+WITH RECURSIVE seq(n) AS (SELECT 4001 UNION ALL SELECT n+1 FROM seq WHERE n<4500)
+INSERT INTO objects (id,markaz_id,kind,parent_id,title,start_at,status,data,created_by,created_at,updated_at) SELECT 'bulk-place-'||printf('%05d',n),'markaz-surrey','place',NULL,'Synthetic place '||printf('%05d',n),NULL,'planned','{"type":"masjid","address":"Surrey synthetic"}','p-admin','2026-10-01T00:00:00.000Z','2026-10-01T00:00:00.000Z' FROM seq;
+WITH RECURSIVE seq(n) AS (SELECT 4501 UNION ALL SELECT n+1 FROM seq WHERE n<5000)
+INSERT INTO objects (id,markaz_id,kind,parent_id,title,start_at,status,data,created_by,created_at,updated_at) SELECT 'bulk-place-'||printf('%05d',n),'markaz-surrey','place',NULL,'Synthetic place '||printf('%05d',n),NULL,'planned','{"type":"masjid","address":"Surrey synthetic"}','p-admin','2026-10-01T00:00:00.000Z','2026-10-01T00:00:00.000Z' FROM seq;
+WITH RECURSIVE seq(n) AS (SELECT 5001 UNION ALL SELECT n+1 FROM seq WHERE n<5500)
+INSERT INTO objects (id,markaz_id,kind,parent_id,title,start_at,status,data,created_by,created_at,updated_at) SELECT 'bulk-place-'||printf('%05d',n),'markaz-surrey','place',NULL,'Synthetic place '||printf('%05d',n),NULL,'planned','{"type":"masjid","address":"Surrey synthetic"}','p-admin','2026-10-01T00:00:00.000Z','2026-10-01T00:00:00.000Z' FROM seq;
+WITH RECURSIVE seq(n) AS (SELECT 5501 UNION ALL SELECT n+1 FROM seq WHERE n<6000)
+INSERT INTO objects (id,markaz_id,kind,parent_id,title,start_at,status,data,created_by,created_at,updated_at) SELECT 'bulk-place-'||printf('%05d',n),'markaz-surrey','place',NULL,'Synthetic place '||printf('%05d',n),NULL,'planned','{"type":"masjid","address":"Surrey synthetic"}','p-admin','2026-10-01T00:00:00.000Z','2026-10-01T00:00:00.000Z' FROM seq;
+WITH RECURSIVE seq(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM seq WHERE n<500)
+INSERT INTO objects (id,markaz_id,kind,parent_id,title,start_at,status,data,created_by,created_at,updated_at) SELECT 'bulk-message-'||printf('%05d',n),'markaz-surrey','message','jamaat-weekend','Message '||printf('%05d',n),NULL,'sent','{"text":"Synthetic message"}','p-member','2026-10-01T00:00:00.000Z','2026-10-01T00:00:00.000Z' FROM seq;
+WITH RECURSIVE seq(n) AS (SELECT 501 UNION ALL SELECT n+1 FROM seq WHERE n<1000)
+INSERT INTO objects (id,markaz_id,kind,parent_id,title,start_at,status,data,created_by,created_at,updated_at) SELECT 'bulk-message-'||printf('%05d',n),'markaz-surrey','message','jamaat-weekend','Message '||printf('%05d',n),NULL,'sent','{"text":"Synthetic message"}','p-member','2026-10-01T00:00:00.000Z','2026-10-01T00:00:00.000Z' FROM seq;
+WITH RECURSIVE seq(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM seq WHERE n<500)
+INSERT INTO objects (id,markaz_id,kind,parent_id,title,start_at,status,data,created_by,created_at,updated_at) SELECT 'bulk-private-'||printf('%05d',n),'markaz-surrey','mashwara',NULL,'Private meeting '||printf('%05d',n),'2026-10-02T20:00:00.000Z','planned','{"visibility":"private","daily":false}','p-admin','2026-10-01T00:00:00.000Z','2026-10-01T00:00:00.000Z' FROM seq;
+WITH RECURSIVE seq(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM seq WHERE n<500)
+INSERT INTO objects (id,markaz_id,kind,parent_id,title,start_at,status,data,created_by,created_at,updated_at) SELECT 'bulk-note-'||printf('%05d',n),'markaz-surrey','note','jamaat-pending','Private note '||printf('%05d',n),NULL,'recorded','{"text":"Private synthetic note"}','p-pending','2026-10-01T00:00:00.000Z','2026-10-01T00:00:00.000Z' FROM seq;

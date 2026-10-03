@@ -1,0 +1,5 @@
+-- Deliberately invalid synthetic history for a read-only repair inventory.
+INSERT INTO objects (id,markaz_id,kind,parent_id,title,start_at,end_at,status,data,created_by,created_at,updated_at) VALUES
+('legacy-invalid-date','markaz-surrey','jamaat',NULL,'Legacy impossible day','2026-02-30','2026-03-02','planning','{"kind":"regular","route":"","ameerId":null,"ameerStatus":"unassigned"}','p-admin','2026-09-30T00:00:00.000Z','2026-09-30T00:00:00.000Z'),
+('legacy-invalid-money','markaz-surrey','money','jamaat-weekend','Legacy boolean cents',NULL,NULL,'planned','{"type":"collection","amountCents":true,"date":"2026-10-02","note":"Review original receipt"}','p-admin','2026-09-30T00:00:00.000Z','2026-09-30T00:00:00.000Z'),
+('legacy-invalid-ref','markaz-surrey','mashwara',NULL,'Legacy wrong location','2026-10-02T20:00:00-07:00',NULL,'planned','{"type":"general","locationId":"jamaat-weekend","ameerId":"p-admin","visibility":"markaz"}','p-admin','2026-09-30T00:00:00.000Z','2026-09-30T00:00:00.000Z');
