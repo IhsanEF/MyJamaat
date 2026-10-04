@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 
 const personas = JSON.parse(readFileSync(new URL("./personas.json", import.meta.url), "utf8"));
 const byKey = new Map(personas.map(persona => [persona.key, persona]));
+const sessions = process.env.AUDIT_SESSION_FILE ? JSON.parse(readFileSync(process.env.AUDIT_SESSION_FILE,"utf8")) : null;
 const host = "127.0.0.1";
 const port = Number(process.env.AUDIT_PROXY_PORT || 5181);
 const workerPort = Number(process.env.AUDIT_WORKER_PORT || 5180);
@@ -49,14 +50,19 @@ const server = http.createServer((request, response) => {
   for (const key of Object.keys(headers)) {
     if (key.startsWith("oai-authenticated-") || key === "x-audit-persona" || key === "x-forwarded-host" || key === "x-forwarded-proto") delete headers[key];
   }
-  if (persona?.authId) {
+  if (sessions) {
+    // Only the isolated harness owns these random sessions; the production
+    // server verifies opaque tokens in its database and ignores identity headers.
+    const retained=String(request.headers.cookie||"").split(";").map(value=>value.trim()).filter(value=>value&&!value.startsWith("mj_session=")&&!value.startsWith("audit_persona="));
+    headers.cookie = [sessions[persona?.key] ? `mj_session=${sessions[persona.key]}` : "",...retained].filter(Boolean).join("; ");
+  } else if (persona?.authId) {
     headers["oai-authenticated-user-id"] = persona.authId;
     headers["oai-authenticated-user-email"] = persona.email;
     headers["oai-authenticated-user-full-name"] = encodeURIComponent(persona.name);
     headers["oai-authenticated-user-full-name-encoding"] = "percent-encoded-utf-8";
   }
   // Preserve a foreign Origin so cross-site checks remain testable.
-  if (headers.origin === incomingOrigin) headers.origin = upstreamOrigin;
+  if (headers.origin === incomingOrigin) headers.origin = sessions ? publicOrigin : upstreamOrigin;
   const upstream = http.request(new URL(request.url, upstreamOrigin), {method:request.method, headers}, upstreamResponse => {
     const resultHeaders = {...upstreamResponse.headers};
     if (typeof resultHeaders.location === "string" && resultHeaders.location.startsWith(upstreamOrigin)) resultHeaders.location = incomingOrigin + resultHeaders.location.slice(upstreamOrigin.length);

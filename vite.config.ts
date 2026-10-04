@@ -4,6 +4,7 @@ import hostingConfig from "./.openai/hosting.json";
 import { readExecutionProfile } from "./scripts/execution-profile.mjs";
 import { sites } from "./build/sites-vite-plugin";
 import { connectorPreview } from "./build/connector-preview-plugin.mjs";
+import { fileURLToPath } from "node:url";
 
 const SITE_CREATOR_PLACEHOLDER_DATABASE_ID =
   "00000000-0000-4000-8000-000000000000";
@@ -37,6 +38,23 @@ const localBindingConfig = {
 };
 
 export default defineConfig(async ({ command }) => {
+  if (process.env.MY_JAMAAT_TARGET === "render") {
+    return {
+      plugins: [{
+        name: "render-auth-boundary", enforce: "pre",
+        resolveId(source: string) {
+          if (source === "./chatgpt-auth" || /\/app\/chatgpt-auth(?:\.ts)?$/.test(source))
+            return fileURLToPath(new URL("./runtime/render/auth.ts", import.meta.url));
+        },
+      }, vinext()],
+      resolve: { alias: [
+        { find: "cloudflare:workers", replacement: fileURLToPath(new URL("./runtime/render/env.mjs", import.meta.url)) },
+        { find: "./chatgpt-auth", replacement: fileURLToPath(new URL("./runtime/render/auth.ts", import.meta.url)) },
+        { find: "@/app/chatgpt-auth", replacement: fileURLToPath(new URL("./runtime/render/auth.ts", import.meta.url)) },
+        { find: /^.*\/app\/chatgpt-auth(?:\.ts)?$/, replacement: fileURLToPath(new URL("./runtime/render/auth.ts", import.meta.url)) },
+      ] },
+    };
+  }
   // Use Miniflare's local Request.cf placeholder unless fetching is requested.
   process.env.CLOUDFLARE_CF_FETCH_ENABLED ??= "false";
   process.env.WRANGLER_SEND_METRICS ??= "false";

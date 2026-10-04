@@ -1,6 +1,6 @@
 # My Jamaat
 
-A Jamaat planning app for Marakiz, Jamaat Ameers and members, built with React, [vinext](https://github.com/cloudflare/vinext), Cloudflare D1 and Drizzle.
+A Jamaat planning app for Marakiz, Jamaat Ameers and members, built with React, [vinext](https://github.com/cloudflare/vinext), Cloudflare D1 or persistent SQLite, and Drizzle.
 
 ## Plan a Jamaat route
 
@@ -13,7 +13,13 @@ Stays must fit within the trip. Confirmed stops cannot overlap. Daily Mashwaras 
 
 ## Source and hosting
 
-GitHub stores the application source, migrations and synthetic test harness. Hosting still requires a trusted authentication proxy that supplies the documented identity headers; the public repository does not grant access to the private deployed app or its database. Register your own Site before deploying a new clone.
+GitHub stores the application source, migrations and synthetic test harness. The Sites target uses hosting-verified ChatGPT identity and D1. The Render target uses server-verified Google sign-in, an approved pilot account list and SQLite on a persistent disk. The repository does not grant access to either deployment or its records. Register your own Site for Sites hosting.
+
+## Render deployment
+
+See [My Jamaat Render deployment guide](MyJamaat_Render_Deployment_AI_Instructions.md) and `.env.render.example`. The production commands are `npm run build:render` and `npm run start:render`; the Node version is pinned in `.node-version`. `render.yaml` describes an optional paid service with a 1 GB disk. Applying it creates paid resources, so review the charges first. Google OAuth configuration and live-host acceptance checks are still required.
+
+Use `node audit/render-runtime-test.mjs` and `node audit/repair-test.mjs all --runtime=node --output=/tmp/my-jamaat-render-verification.json` to test the new runtime with disposable synthetic records. The ordinary `npm run build` / `npm start` commands retain the Sites build and local Wrangler preview. Both build targets write `dist/`; stop servers before switching targets.
 
 The public snapshot omits private deployment evidence and the original deployment history. In the original private checkout, `node scripts/export-github-source.mjs NEW_EMPTY_DIRECTORY` prepares a new public snapshot. Existing public repository updates should be reviewed and committed against its own history.
 

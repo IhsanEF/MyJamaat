@@ -30,6 +30,10 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.render.example
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
 
 # vercel
 .vercel

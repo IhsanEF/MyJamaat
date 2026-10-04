@@ -1,5 +1,5 @@
 // Task 01 regression entry point. Every invocation uses disposable, synthetic D1 state.
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
@@ -19,14 +19,32 @@ if (!["all", "daily", "authorization-baseline", "isolation", "dependency-smoke",
   throw new Error("Select all, daily, authorization-baseline, isolation, dependency-smoke, validation, ameer, permissions, revocation, resolution, onboarding, import, privacy, time, route, series, mashwara, ijtema, baraka, or recorded.");
 }
 const reproduce=process.argv.includes("--reproduce");
+const nodeRuntime=process.argv.includes("--runtime=node");
 const outputArg = process.argv.find(value => value.startsWith("--output="));
 const output = outputArg ? path.resolve(outputArg.slice(9)) : path.join(root, "audit/repair-task-01-verification.json");
 const sha256 = file => createHash("sha256").update(readFileSync(path.join(root, file))).digest("hex");
-const buildHash = sha256("dist/server/index.js");
+const buildHash = nodeRuntime ? createHash("sha256").update(readdirSync(path.join(root,"dist"),{recursive:true}).filter(name=>/\.(?:js|mjs|json|css)$/.test(String(name))).sort().map(name=>String(name)+readFileSync(path.join(root,"dist",name),"utf8")).join("\n")).digest("hex") : sha256("dist/server/index.js");
 const sourceHash = sha256("app/api/app/route.ts");
-const result = {suite, startedAt:new Date().toISOString(), sourceHash, buildHash, classifications:[], sessions:[], errors:[]};
+const runtimeHash = nodeRuntime ? createHash("sha256").update([...readdirSync(path.join(root,"runtime/render")).map(name=>`runtime/render/${name}`),"lib/request-bounds.ts","lib/response-policy.ts"].sort().map(name=>name+readFileSync(path.join(root,name),"utf8")).join("\n")).digest("hex") : null;
+const result = {suite, runtimeHash, runtime:nodeRuntime?"node":"cloudflare", startedAt:new Date().toISOString(), sourceHash, buildHash, classifications:[], sessions:[], errors:[]};
 
 function command(args, env={}) {
+  if(nodeRuntime && args.includes("d1") && args.includes("execute")) {
+    const db=new DatabaseSync(path.join(env.AUDIT_PERSIST_DIR,"render.sqlite"));
+    try {
+      const fileIndex=args.indexOf("--file"), sqlIndex=args.indexOf("--command");
+      const file=fileIndex>=0?args[fileIndex+1]:null;
+      const sql=file?readFileSync(path.resolve(root,file),"utf8"):args[sqlIndex+1];
+      let stdout="";
+      if(sql.trim().startsWith("EXPLAIN"))stdout=JSON.stringify(db.prepare(sql).all());
+      else db.exec(sql);
+      if(file?.startsWith("drizzle/")) {
+        db.exec("CREATE TABLE IF NOT EXISTS render_migrations (name TEXT PRIMARY KEY, sha256 TEXT NOT NULL, applied_at TEXT NOT NULL)");
+        db.prepare("INSERT INTO render_migrations VALUES (?,?,?)").run(path.basename(file),createHash("sha256").update(sql).digest("hex"),new Date().toISOString());
+      }
+      return {command:`Node SQLite isolated SQL: ${file??"bounded fixture/query"}`,stdout};
+    } finally {db.close();}
+  }
   const run = spawnSync(process.execPath, args, {cwd:root, env:{...process.env,...env}, encoding:"utf8", timeout:120000});
   if (run.error || run.status !== 0) throw new Error(`${args.join(" ")} failed (${run.status}; ${run.error || "no spawn error"}): ${run.stderr || run.stdout || "no command output"}`);
   return {command:`node ${args.join(" ")}`, stdout:run.stdout.trim()};
@@ -44,6 +62,7 @@ async function waitFor(base, child, logs, empty=false) {
     try {
       const response = await fetch(`${base}/api/app`, {headers:{"x-audit-persona":empty?"new":"admin"},signal:AbortSignal.timeout(1000)});
       const payload=await response.json();
+      if(nodeRuntime && i===5)logs.push(`Node readiness HTTP ${response.status}: ${JSON.stringify(payload).slice(0,500)}\n`);
       if (response.status===200 && (empty?payload.setup==="create-markaz":payload.me?.id==="p-admin")) return;
     } catch {}
     await new Promise(resolve=>setTimeout(resolve,200));
@@ -84,12 +103,28 @@ async function session(label, test, extraFixture, empty=false, recovery={}) {
     record.auditLifecycleMigration=command(["--import","./scripts/sites-env.mjs","./node_modules/wrangler/bin/wrangler.js","d1","execute","DB","--local","--config","dist/server/wrangler.json","--persist-to",directory,"--file","drizzle/0013_audit_lifecycle.sql"],env).command;
     }
     if(label.startsWith("Task 21 paginated"))record.pageQueryPlan=command(["--import","./scripts/sites-env.mjs","./node_modules/wrangler/bin/wrangler.js","d1","execute","DB","--local","--config","dist/server/wrangler.json","--persist-to",directory,"--command","EXPLAIN QUERY PLAN SELECT * FROM objects WHERE markaz_id='markaz-surrey' ORDER BY CASE WHEN kind IN ('jamaat','event','stay','team','duty','assignment') THEN 0 WHEN kind='mashwara' AND COALESCE(CASE WHEN json_valid(data) THEN json_extract(data,'$.visibility') ELSE NULL END,'markaz')<>'private' THEN 1 WHEN kind='mashwara' THEN 2 WHEN kind='place' THEN 3 ELSE 4 END,created_at DESC,id DESC LIMIT 501"],env).stdout;
-    worker=spawn(process.execPath,["audit/worker.mjs"],{cwd:root,env:{...process.env,...env},stdio:["ignore","pipe","pipe"]});
+    if(nodeRuntime) {
+      const personas=JSON.parse(readFileSync(path.join(root,"audit/personas.json"),"utf8"));
+      const db=new DatabaseSync(path.join(directory,"render.sqlite"));
+      db.exec("CREATE TABLE IF NOT EXISTS render_sessions (token_hash TEXT PRIMARY KEY,user_id TEXT NOT NULL,email TEXT NOT NULL,full_name TEXT,expires_at INTEGER NOT NULL)");
+      const tokens={};
+      for(const persona of personas.filter(row=>row.authId)) {
+        const token=randomBytes(32).toString("base64url");tokens[persona.key]=token;
+        db.prepare("INSERT INTO render_sessions VALUES (?,?,?,?,?)").run(createHash("sha256").update(token).digest("hex"),persona.authId,persona.email,persona.name,Date.now()+3600000);
+      }
+      db.close();
+      env.AUDIT_SESSION_FILE=path.join(directory,"sessions.json");
+      writeFileSync(env.AUDIT_SESSION_FILE,JSON.stringify(tokens),{mode:0o600});
+      env.SQLITE_PATH=path.join(directory,"render.sqlite");env.PORT=String(workerPort);env.PUBLIC_ORIGIN=base;
+      env.GOOGLE_CLIENT_ID="synthetic-client";env.GOOGLE_CLIENT_SECRET="synthetic-not-a-credential";
+      env.ALLOWED_SIGN_IN_EMAILS=personas.filter(row=>row.authId).map(row=>row.email).join(",");
+    }
+    worker=spawn(process.execPath,[nodeRuntime?"scripts/start-render.mjs":"audit/worker.mjs"],{cwd:root,env:{...process.env,...env},stdio:["ignore","pipe","pipe"]});
     for (const stream of [worker.stdout,worker.stderr]) stream.on("data",chunk=>logs.push(String(chunk)));
     proxy=spawn(process.execPath,["audit/proxy.mjs"],{cwd:root,env:{...process.env,...env},stdio:["ignore","pipe","pipe"]});
     for (const stream of [proxy.stdout,proxy.stderr]) stream.on("data",chunk=>logs.push(String(chunk)));
     await waitFor(base,proxy,logs,empty);
-    record.servedBuildEvidence = `Fresh Worker and proxy started after build hash; authenticated API returned ${empty?"empty Markaz setup":"fixture admin"}; feature behavior checked below.`;
+    record.servedBuildEvidence = `Fresh ${nodeRuntime?"production Node server with real opaque session verification":"Worker"} and isolated proxy started after build hash; authenticated API returned ${empty?"empty Markaz setup":"fixture admin"}; feature behavior checked below.`;
     await test(base,record,{directory,env});
   } finally {
     if(label.startsWith("Task 22"))record.workerLogTail=logs.join("").slice(-4000);
@@ -258,7 +293,7 @@ async function validation() {
       if (id==="legacy-invalid-ref") findings.push(`locationId references ${objects.get(item.data.locationId)?.kind||"missing"}; confirm intended place before correction.`);
       report.records.push({id,kind:item.kind,findings,disposition:"manual review required; retain record and audit history"});
     }
-    const reportPath=path.join(root,"audit/repair-task-03-historical-review.json");
+    const reportPath=(nodeRuntime?path.join(path.dirname(output),"render-task-03-historical-review.json"):path.join(root,"audit/repair-task-03-historical-review.json"));
     writeFileSync(reportPath,JSON.stringify(report,null,2)+"\n");
     check(record,"historical invalid records inventoried without deletion",report.records.length===3&&report.records.every(row=>row.findings.length&&objects.has(row.id)),"policy-pass",{report:reportPath,ids:report.records.map(row=>row.id)});
   },"audit/repair-task-03-legacy-fixture.sql");
@@ -290,7 +325,7 @@ async function ameer() {
     check(record,"cross-tenant legacy Ameer stays unresolved",!adminBefore.data.memberships.some(m=>m.jamaatId==="legacy-cross-tenant-ameer"&&m.personId==="p-other-admin"),"policy-pass");
     const ambiguousGrants=adminBefore.data.memberships.filter(m=>m.permissions.needsReview).map(m=>({jamaatId:m.jamaatId,personId:m.personId,reason:"Legacy manage/contact grant lacks trusted provenance. Contact and sensitive access are quarantined pending Task 05 review."}));
     const report={scope:"Disposable synthetic existing-record fixture; production records were not accessed.",buildHash,unresolved:[{jamaatId:"legacy-cross-tenant-ameer",reason:"Approved Ameer points to a person in another Markaz; choose the correct local person before correction."},...ambiguousGrants],deterministicRepair:[{jamaatId:"legacy-approved-missing-member",personId:"p-member",change:"Forward migration inserted missing approved Ameer membership."},{jamaatId:"jamaat-pending",personId:"p-pending",change:"Forward migration demoted a pending creator's stale Ameer role."}]};
-    const reportPath=path.join(root,"audit/repair-task-04-historical-review.json");
+    const reportPath=(nodeRuntime?path.join(path.dirname(output),"render-task-04-historical-review.json"):path.join(root,"audit/repair-task-04-historical-review.json"));
     writeFileSync(reportPath,JSON.stringify(report,null,2)+"\n");
     check(record,"ambiguous legacy authority has explicit review report",report.unresolved.length>=4&&report.deterministicRepair.length===2,"policy-pass",{report:reportPath,unresolved:report.unresolved.length});
 
@@ -439,7 +474,7 @@ async function revocation() {
     check(record,"unsafe daily plan keeps valid member only",JSON.stringify(plan?.data.personIds)==='["p-member"]'&&reviews.find(r=>r.targetId===plan.id)?.original.includes("p-other-admin"),"policy-pass",{personIds:plan?.data.personIds});
     check(record,"unsafe daily Ameer cleared for review",daily?.data.ameerId===null&&reviews.find(r=>r.targetId===daily.id)?.original.includes("p-other-admin"),"policy-pass");
     const report={scope:"Disposable synthetic fixture; production records were not inspected or changed.",buildHash,reviewQueue:reviews.map(r=>({kind:r.kind,targetId:r.targetId,status:r.status,originalPreserved:typeof r.original==="string"&&r.original.length>0})),policy:"Unverified grants and invalid live assignments are quarantined. A Markaz leader must verify original evidence and explicitly grant a scope or reassign a current member."};
-    writeFileSync(path.join(root,"audit/repair-task-05-historical-review.json"),JSON.stringify(report,null,2)+"\n");
+    writeFileSync((nodeRuntime?path.join(path.dirname(output),"render-task-05-historical-review.json"):path.join(root,"audit/repair-task-05-historical-review.json")),JSON.stringify(report,null,2)+"\n");
     const granted=await api(base,"admin",{action:"setMemberPermission",jamaatId:"jamaat-weekend",personId:"p-planner",scopes:["route","contacts"]});
     check(record,"scoped grant for revocation setup",granted.status===200,"policy-pass",{status:granted.status});
     check(record,"planner route works before revocation",(await versionedEdit(base,"planner",{action:"updateItem",id:"jamaat-weekend",data:{route:"Before revoke"}})).status===200,"policy-pass");
@@ -1333,7 +1368,7 @@ async function abuseReview() {
     catch(error){invalidUtf8Bounded=error instanceof RequestBodyError&&error.status===400;}
     check(record,"invalid UTF-8 receives controlled input error",invalidUtf8Bounded);
     const malformed=await fetch(`${base}/api/app`,{method:"POST",headers:{"x-audit-persona":"admin","content-type":"application/json"},body:"{broken"});
-    check(record,"malformed JSON receives controlled error",malformed.status===400);
+    check(record,"malformed JSON receives controlled error",malformed.status===400,"policy-pass",{status:malformed.status,body:(await malformed.text()).slice(0,200)});
     let fileRead=false;
     try{await preflightXlsx({size:2_000_001,arrayBuffer:async()=>{fileRead=true;return new ArrayBuffer(0);}});}catch{}
     check(record,"import rejects compressed-size limit before expansion",!fileRead);

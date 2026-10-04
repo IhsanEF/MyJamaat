@@ -1,13 +1,30 @@
 # Synthetic regression tests
 
-All fixture identities and records are synthetic. These tools use disposable local databases and loopback listeners. Never apply fixture SQL to production. Node 22.13 or later is required.
+Use the pinned Node 24.19.0 runtime. Fixtures contain synthetic identities and records; all tests use disposable local storage and loopback listeners. Never apply fixture SQL to production.
 
-After installing dependencies with npm run install:ci and building with npm run build:
+Install dependencies with `npm run install:ci`.
 
-- node audit/route-planning-test.mjs
-- node audit/repair-test.mjs route --output=/tmp/my-jamaat-route-verification.json
-- node audit/repair-test.mjs all --output=/tmp/my-jamaat-full-verification.json
+## Render target
 
-The browser harness prints a disposable proxy port and accepts an optional output manifest path. Use a persona host such as http://markaz-ameer.localhost:PORT/. Stop it with Ctrl+C to delete its temporary database.
+```sh
+npm run build:render
+node audit/render-runtime-test.mjs
+node audit/route-planning-test.mjs
+node audit/repair-test.mjs all --runtime=node --output=/tmp/my-jamaat-render-verification.json
+```
 
-Private audit reports, screenshots, production readbacks, and the original deployment Git history are excluded from this public source snapshot.
+The runtime tests use synthetic signed Google tokens with the official verifier and stubbed provider transport. They test local restart and consistent backup/isolated restore, and do not claim live Google login or Render disk persistence.
+
+`node audit/render-browser-server.mjs` prints a disposable persona URL. Its isolated proxy supplies random database-backed session cookies; the production server verifies them. Stop it with Ctrl+C to delete temporary storage. Never deploy the audit proxy.
+
+## Existing Cloudflare target
+
+```sh
+npm run build
+node audit/repair-test.mjs dependency-smoke --output=/tmp/my-jamaat-sites-smoke.json
+node audit/repair-test.mjs all --output=/tmp/my-jamaat-full-verification.json
+```
+
+Build targets share `dist/`; stop servers before switching. The Cloudflare browser harness is `node audit/task-25-browser-server.mjs`.
+
+Private reports, screenshots, production readbacks and original deployment Git history are excluded from public source. See the Render deployment guide for the separate live release gate.

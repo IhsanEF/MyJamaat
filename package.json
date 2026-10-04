@@ -11,7 +11,9 @@
     "build": "node scripts/run-framework.mjs build",
     "start": "node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js dev --config dist/server/wrangler.json --local --persist-to .wrangler/state --ip 127.0.0.1 --inspector-port 0",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "build:render": "node scripts/build-render.mjs",
+    "start:render": "node scripts/start-render.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -23,6 +25,7 @@
     "date-fns": "^4.4.0",
     "drizzle-orm": "0.45.2",
     "embla-carousel-react": "^8.6.0",
+    "google-auth-library": "11.1.0",
     "input-otp": "^1.4.2",
     "lucide-react": "^1.31.0",
     "next": "16.3.8",
@@ -39,7 +42,8 @@
     "sonner": "^2.0.8",
     "tailwind-merge": "3.6.0",
     "vaul": "^1.1.2",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "vinext": "1.0.0-beta.5"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",
@@ -60,7 +64,6 @@
     "tailwindcss": "4.2.1",
     "tw-animate-css": "^1.4.0",
     "typescript": "5.9.3",
-    "vinext": "1.0.0-beta.5",
     "vite": "8.0.13",
     "wrangler": "4.92.0"
   },
@@ -68,6 +71,9 @@
   "overrides": {
     "miniflare": {
       "sharp": "0.35.4"
+    },
+    "vinext": {
+      "image-size": "2.0.4"
     }
   }
 }

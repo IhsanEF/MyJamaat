@@ -64,6 +64,7 @@ export const englishCopy = {
   "action.newMashwara": "New mashwara",
   "action.newEvent": "New event",
   "action.profile": "My profile",
+  "action.signOut": "Sign out",
   "action.seeDuties": "See my duties",
   "action.openRoute": "Open route",
   "action.openMashwara": "Open Mashwara",
