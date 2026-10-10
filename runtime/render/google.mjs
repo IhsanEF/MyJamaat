@@ -1,6 +1,6 @@
 import { OAuth2Client } from 'google-auth-library';
 import { getDatabase } from './database.mjs';
-import { origin, randomToken, sha256, safeReturnTo, cookie, readCookie, cookieName, safeEqual, allowedEmails, createSession, revokeSession } from './sessions.mjs';
+import { origin, randomToken, sha256, safeReturnTo, cookie, readCookie, cookieName, safeEqual, createSession, revokeSession } from './sessions.mjs';
 import { readBoundedUtf8 } from '../../lib/request-bounds.ts';
 const escape = value => String(value).replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
 const client = () => {
@@ -13,13 +13,22 @@ function page(title, content, status = 200, headers = {}) {
 }
 export async function authRoute(request) {
   const url = new URL(request.url);
+  if (['/about','/privacy'].includes(url.pathname)) {
+    if (!['GET','HEAD'].includes(request.method)) return new Response(null,{status:405,headers:{allow:'GET, HEAD'}});
+    const privacy=url.pathname==='/privacy';
+    const content=privacy
+      ? `<h2>Privacy</h2><p>My Jamaat helps people organize Markaz and Jamaat activities.</p><h3>Google sign-in</h3><p>We request your Google account identifier, verified email and basic profile name to identify your account and display your name. We do not request access to Gmail, Drive, contacts or calendars. Your Google password stays with Google.</p><h3>App records and access</h3><p>Information you enter, including membership, route plans, messages and activity history, is stored for the app's functions. Access follows Markaz membership and role permissions. Signing in alone does not give access to another Markaz's private records.</p><h3>Storage and providers</h3><p>This deployment uses Google for authentication, Render for hosting and Turso for database storage. These providers process information required to provide their services. Session tokens are stored as hashes and expire after seven days; signing out revokes the current session. Account and activity records are not deleted automatically when you sign out.</p><h3>Your records and requests</h3><p>Signed-in users can export their personal records through the app's history tools. Contact your Markaz organizer or the support address shown on the Google consent screen for questions, corrections or deletion requests. Some shared records and audit history may require organizer review; signing out does not remove them.</p><p><a href="/about">About My Jamaat</a> · <a href="/signin">Sign in</a></p>`
+      : `<h2>Organize your Jamaat</h2><p>My Jamaat helps Markaz organizers and members plan Jamaat routes across masajid, choose the number of days at each stop, and coordinate meetings, duties and activity records.</p><p>Sign in with your Google account to create or join a Markaz. Membership and role permissions determine which records you can access.</p><p>Google provides your account identifier, verified email and basic profile name for sign-in. My Jamaat does not request access to your Gmail, Drive or Google calendars.</p><p><a href="/signin">Continue to sign in</a> · <a href="/privacy">Privacy policy</a></p>`;
+    const response=page(privacy?'Privacy':'About',content);
+    return request.method==='HEAD'?new Response(null,{status:response.status,headers:response.headers}):response;
+  }
   if (!['/signin','/signout','/auth/google/callback','/signin-with-chatgpt','/signout-with-chatgpt'].includes(url.pathname)) return null;
   if (url.pathname.endsWith('-with-chatgpt')) return Response.redirect(`${origin()}${url.pathname.startsWith('/signin')?'/signin':'/signout'}${url.search}`,303);
   if (url.pathname === '/auth/google/callback') return googleCallback(request);
   if (request.method === 'GET') {
     const csrf = randomToken();
     const signout = url.pathname === '/signout';
-    return page(signout?'Sign out':'Sign in', `<h2>${signout?'Sign out':'Sign in to your Markaz'}</h2><p>${signout?'End this browser’s My Jamaat session.':'Use your approved Google account to continue. Your Markaz permissions apply after sign-in.'}</p><form action="${signout?'/signout':'/signin'}" method="post"><input type="hidden" name="csrf" value="${csrf}"><input type="hidden" name="return_to" value="${escape(safeReturnTo(url.searchParams.get('return_to')??'/'))}"><button type="submit">${signout?'Sign out':'Continue with Google'}</button></form>`,200,{'set-cookie':cookie('csrf',csrf,600)});
+    return page(signout?'Sign out':'Sign in', `<h2>${signout?'Sign out':'Sign in to your Markaz'}</h2><p>${signout?'End this browser’s My Jamaat session.':'Use your Google account to continue. Your Markaz permissions apply after sign-in.'}</p><form action="${signout?'/signout':'/signin'}" method="post"><input type="hidden" name="csrf" value="${csrf}"><input type="hidden" name="return_to" value="${escape(safeReturnTo(url.searchParams.get('return_to')??'/'))}"><button type="submit">${signout?'Sign out':'Continue with Google'}</button></form><p><a href="/about">About My Jamaat</a> · <a href="/privacy">Privacy policy</a></p>`,200,{'set-cookie':cookie('csrf',csrf,600)});
   }
   if (request.method !== 'POST') return new Response(null,{status:405,headers:{allow:'GET, POST'}});
   if (request.headers.get('origin') !== origin()) return page('Request declined',`<p>Please open a fresh form and try again. <a href="${url.pathname}">Try again</a>.</p>`,403);
@@ -54,7 +63,7 @@ export async function googleCallback(request, oauth = client()) {
     if (!tokens.id_token) throw new Error('Missing ID token');
     const ticket = await oauth.verifyIdToken({ idToken:tokens.id_token, audience:process.env.GOOGLE_CLIENT_ID });
     const user = ticket.getPayload();
-    if (!user?.sub || user.nonce !== attempt.nonce || !user.email || user.email_verified !== true || !allowedEmails().has(user.email.toLowerCase())) return page('Access not enabled','<p>This Google account has not been enabled for the pilot. Contact your Markaz organizer.</p>',403);
+    if (!user?.sub || user.nonce !== attempt.nonce || !user.email || user.email_verified !== true) return page('Sign-in failed','<p>Your Google account could not be verified. <a href="/signin">Try again</a>.</p>',403);
     await revokeSession(request.headers.get('cookie'));
     const token = await createSession({userId:`google:${user.sub}`,email:user.email,fullName:user.name??null});
     const headers = new Headers({location:attempt.return_to,'cache-control':'no-store'});

@@ -21,7 +21,7 @@ const check=(name,value)=>{assert.ok(value,name);checks.push(name);};
 const portServer=net.createServer();await new Promise(resolve=>portServer.listen(0,'127.0.0.1',resolve));
 const port=portServer.address().port;await new Promise(resolve=>portServer.close(resolve));
 const base=`http://127.0.0.1:${port}`;
-Object.assign(process.env,{PORT:String(port),PUBLIC_ORIGIN:base,SQLITE_PATH:join(directory,'app.sqlite'),GOOGLE_CLIENT_ID:'synthetic-client',GOOGLE_CLIENT_SECRET:'synthetic-not-a-secret',ALLOWED_SIGN_IN_EMAILS:'allowed@example.test'});
+Object.assign(process.env,{PORT:String(port),PUBLIC_ORIGIN:base,SQLITE_PATH:join(directory,'app.sqlite'),GOOGLE_CLIENT_ID:'synthetic-client',GOOGLE_CLIENT_SECRET:'synthetic-not-a-secret'});
 process.env.TURSO_DATABASE_URL=libsql ? `file:${join(directory,'app.sqlite')}` : '';
 delete process.env.TURSO_AUTH_TOKEN;
 const request=(path,options={})=>new Request(`${base}${path}`,options);
@@ -42,7 +42,8 @@ const stop=async()=>{
   if(child&&child.exitCode===null){const exited=new Promise(resolve=>child.once('exit',resolve));child.kill('SIGTERM');await exited;}
 };
 try {
-  validateConfiguration();const db=getDatabase();await db.ready;
+  delete process.env.ALLOWED_SIGN_IN_EMAILS;
+  validateConfiguration();check('general Google sign-in starts without an email list',true);const db=getDatabase();await db.ready;
   const query=(sql,...values)=>db.prepare(sql).bind(...values).first();
   const rows=async sql=>(await db.prepare(sql).all()).results;
   const run=(sql,...values)=>db.prepare(sql).bind(...values).run();
@@ -56,6 +57,11 @@ try {
   check('UPDATE RETURNING includes rows and change count',(await db.prepare('UPDATE adapter_probe SET value=? WHERE id=? RETURNING id').bind('updated',2).run()).meta.changes===1);
   check('D1 all and raw result shapes',(await db.prepare('SELECT value FROM adapter_probe ORDER BY id').all()).results.length===2&&(await db.prepare('SELECT value FROM adapter_probe ORDER BY id').raw({columnNames:true}))[0][0]==='value');
   check('no open return URL',['https://evil.test','//evil.test','/\\evil.test','/signin','/auth/google/callback'].every(value=>safeReturnTo(value)==='/'));
+  const about=await handleRequest(request('/about'),()=>{throw new Error('Public info reached protected app');});
+  check('public homepage explains app and links privacy without authentication',about.status===200&&(await about.text()).includes('href="/privacy"'));
+  const privacy=await handleRequest(request('/privacy'),()=>{throw new Error('Privacy reached protected app');});
+  check('public privacy explains Google data without exposing app records',privacy.status===200&&(await privacy.text()).includes('Google password stays with Google'));
+  check('public information rejects writes and supports empty HEAD',(await authRoute(request('/privacy',{method:'POST'}))).status===405&&(await authRoute(request('/privacy',{method:'HEAD'}))).body===null);
   const signin=await authRoute(request('/signin?return_to=%2F%2Fevil.test'));
   const html=await signin.text();const csrf=html.match(/name="csrf" value="([^"]+)"/)[1];
   check('sign-in form has CSRF cookie',signin.headers.get('set-cookie').includes('HttpOnly')&&signin.headers.get('set-cookie').includes('SameSite=Lax'));
@@ -84,7 +90,7 @@ try {
   for(const [name,change,status] of [
     ['wrong audience',{aud:'foreign-client'},400],['wrong issuer',{iss:'https://evil.test'},400],
     ['expired token',{iat:1,exp:2},400],['wrong nonce',{nonce:'wrong'},403],
-    ['unverified email',{email_verified:false},403],['unapproved pilot email',{email:'denied@example.test'},403],
+    ['unverified email',{email_verified:false},403],
   ]){payload={...good,...change};check(`Google ${name} denied`,(await googleCallback(callback(await seedAttempt()),oauth)).status===status);}
   payload=good;tamper=true;check('Google tampered signature denied',(await googleCallback(callback(await seedAttempt()),oauth)).status===400);tamper=false;
   const finalState=await seedAttempt();const loggedIn=await googleCallback(callback(finalState),oauth);
@@ -97,7 +103,13 @@ try {
   check('expired sessions denied',(await verifiedUser(cookieHeader('session',expired)))===null);
   check('duplicate session cookies denied',(await verifiedUser(`${sessionCookie}; ${sessionCookie}`))===null);
   const forged=randomToken();check('unknown session token denied',(await verifiedUser(cookieHeader('session',forged)))===null);
-  process.env.ALLOWED_SIGN_IN_EMAILS='other@example.test';check('pilot access revocation immediate',(await verifiedUser(sessionCookie))===null);process.env.ALLOWED_SIGN_IN_EMAILS='allowed@example.test';
+  payload={...good,sub:'another-google-subject',email:'another@example.test'};
+  const generalState=await seedAttempt();const generalLogin=await googleCallback(callback(generalState),oauth);
+  const generalCookie=generalLogin.headers.getSetCookie().find(value=>value.startsWith(`${cookieName('session')}=`)).split(';')[0];
+  check('another verified Google account signs in without preapproval',generalLogin.status===303&&(await verifiedUser(generalCookie))?.userId==='google:another-google-subject');
+  process.env.ALLOWED_SIGN_IN_EMAILS='obsolete@example.test';
+  check('obsolete email-list setting cannot restrict general sign-in',(await verifiedUser(generalCookie))?.email==='another@example.test');
+  delete process.env.ALLOWED_SIGN_IN_EMAILS;payload=good;
   await run('DELETE FROM render_login_attempts');
   await db.batch(Array.from({length:499},()=>db.prepare('INSERT INTO render_login_attempts VALUES (?,?,?,?,?)').bind(sha256(randomToken()),randomToken(),randomToken(),'/',Date.now()+600000)));
   const lastSlots=await Promise.all([authRoute(request('/signin',postOptions)),authRoute(request('/signin',postOptions))]);
@@ -116,6 +128,11 @@ try {
   const setup=await fetch(`${base}/api/app`,{headers:apiHeaders});check('verified Google session reaches empty setup',(await setup.json()).setup==='create-markaz');
   const created=await fetch(`${base}/api/app`,{method:'POST',headers:apiHeaders,body:JSON.stringify({action:'createMarkaz',name:'Synthetic Render Markaz',yourName:'Synthetic Organizer',timeZone:'America/Vancouver'})});check('verified session creates synthetic Markaz',created.status===200);
   const first=await (await fetch(`${base}/api/app`,{headers:apiHeaders})).json();
+  const outsiderHeaders={...apiHeaders,cookie:generalCookie};
+  const outsiderData=await (await fetch(`${base}/api/app`,{headers:outsiderHeaders})).json();
+  check('new Google account does not inherit another Markaz records',JSON.stringify(outsiderData)===JSON.stringify({setup:'join-markaz'}));
+  const outsiderChange=await fetch(`${base}/api/app`,{method:'POST',headers:outsiderHeaders,body:JSON.stringify({action:'setMarkazTimeZone',markazId:first.markaz.id,timeZone:'UTC'})});
+  check('new Google account cannot change another Markaz',outsiderChange.status===403);
   await stop();await start();const second=await (await fetch(`${base}/api/app`,{headers:apiHeaders})).json();
   check('restart preserves Markaz, person and session',first.markaz.id===second.markaz.id&&first.me.id===second.me.id);
   const backupFile=join(directory,'backup.sqlite');const backed=spawnSync(process.execPath,['scripts/backup-render.mjs',backupFile],{env:{...process.env,TURSO_DATABASE_URL:''},encoding:'utf8'});

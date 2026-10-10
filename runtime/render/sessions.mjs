@@ -10,15 +10,11 @@ export function validateConfiguration() {
   if (url.href !== `${url.origin}/` || url.username || url.password) throw new Error('PUBLIC_ORIGIN must be an origin without a path.');
   if (url.protocol !== 'https:' && !(url.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(url.hostname))) throw new Error('PUBLIC_ORIGIN requires HTTPS outside localhost.');
   if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) throw new Error('Google OAuth client configuration is required.');
-  if (!allowedEmails().size) throw new Error('ALLOWED_SIGN_IN_EMAILS is required for the pilot.');
   if (process.env.TURSO_DATABASE_URL) {
     const databaseUrl = new URL(process.env.TURSO_DATABASE_URL);
     if (!['libsql:', 'https:', ...(process.env.RENDER ? [] : ['file:'])].includes(databaseUrl.protocol) || databaseUrl.username || databaseUrl.password || databaseUrl.search || databaseUrl.hash) throw new Error('Invalid Turso database URL.');
     if (databaseUrl.protocol !== 'file:' && !process.env.TURSO_AUTH_TOKEN) throw new Error('TURSO_AUTH_TOKEN is required.');
   } else if (process.env.RENDER && !process.env.SQLITE_PATH?.startsWith('/var/data/')) throw new Error('Render requires remote Turso storage or an attached /var/data disk.');
-}
-export function allowedEmails() {
-  return new Set((process.env.ALLOWED_SIGN_IN_EMAILS ?? '').split(',').map(email => email.trim().toLowerCase()).filter(Boolean));
 }
 export function cookieName(purpose) { return `${origin().startsWith('https:') ? '__Host-' : ''}mj_${purpose}`; }
 export function readCookie(header, name) {
@@ -43,7 +39,7 @@ export async function verifiedUser(header) {
   const token = readCookie(header, cookieName('session'));
   if (!token || !/^[A-Za-z0-9_-]{43}$/.test(token)) return null;
   const session = await getDatabase().prepare('SELECT * FROM render_sessions WHERE token_hash=? AND expires_at>?').bind(sha256(token), Date.now()).first();
-  if (!session || !allowedEmails().has(session.email.toLowerCase())) return null;
+  if (!session) return null;
   return { userId: session.user_id, email: session.email, fullName: session.full_name, displayName: session.full_name || session.email };
 }
 export async function createSession(user) {

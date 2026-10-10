@@ -13,7 +13,7 @@ Stays must fit within the trip. Confirmed stops cannot overlap. Daily Mashwaras 
 
 ## Source and hosting
 
-GitHub stores the application source, migrations and synthetic test harness. The Sites target uses hosting-verified ChatGPT identity and D1. The Render target uses server-verified Google sign-in, an approved pilot account list and remote Turso SQLite storage (or optional paid-disk SQLite). The repository does not grant access to either deployment or its records. Register your own Site for Sites hosting.
+GitHub stores the application source, migrations and synthetic test harness. The Sites target uses hosting-verified ChatGPT identity and D1. The Render target uses server-verified Google sign-in, general Google account access and remote Turso SQLite storage (or optional paid-disk SQLite). The repository does not grant access to either deployment or its records. Register your own Site for Sites hosting.
 
 ## Render deployment
 

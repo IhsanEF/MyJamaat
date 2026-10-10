@@ -86,12 +86,11 @@ No broader GitHub access is necessary when the existing integration already list
 | `TURSO_AUTH_TOKEN` | A token scoped to this database with read/write access, entered privately |
 | `GOOGLE_CLIENT_ID` | My Jamaat Web application OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | Its secret, entered privately |
-| `ALLOWED_SIGN_IN_EMAILS` | Comma-separated approved Google accounts for the pilot |
 | `PORT` | Render default 10000 |
 | `RENDER_EXTERNAL_URL` | Automatically supplied actual public origin |
 | `PUBLIC_ORIGIN` | Optional exact origin override for a custom domain |
 
-Leave **SQLITE_PATH unset on Render Free**. Remote storage takes precedence over the optional local adapter. Render configuration rejects a file URL masquerading as Turso. Missing remote token, Google client or pilot allowlist fails startup. Credentials must never be pasted into chat, logs, commits, screenshots or fixture files. The user creates and enters new credentials privately in provider interfaces.
+Leave **SQLITE_PATH unset on Render Free**. Remote storage takes precedence over the optional local adapter. Render configuration rejects a file URL masquerading as Turso. Missing remote token or Google client fails startup. Credentials must never be pasted into chat, logs, commits, screenshots or fixture files. The user creates and enters new credentials privately in provider interfaces.
 
 ## Google sign-in
 
@@ -103,9 +102,9 @@ Configure a Google **Web application** client for My Jamaat with the exact callb
 https://ACTUAL-RENDER-HOST/auth/google/callback
 ```
 
-Do not guess a live service URL. Configure consent/test users as required by Google. Only openid/email/profile scopes are requested; no Firebase service account, Gemini key or broad Cloud IAM role is needed.
+Do not guess a live service URL. For Google Branding, use the confirmed deployment origin plus `/about` as the application homepage and `/privacy` as the privacy policy. These public informational pages contain no app records. Review the privacy text against actual operator practices before wider rollout. Google Audience must be External and In production for general access. While Google keeps the app in Testing, only its permitted test accounts can authenticate even though the app itself accepts any verified Google account. The owner must review and confirm Google’s publishing step. Only openid/email/profile scopes are requested; no Firebase service account, Gemini key or broad Cloud IAM role is needed.
 
-Google signatures, issuer, audience, expiry, verified email, state/nonce and PKCE are checked. Seven-day opaque sessions are stored as hashes in the database. Logout revokes them; pilot allowlist removal takes effect on the next request. Caller hosting/forwarding/fixture headers cannot authenticate. Origins govern redirects and CSRF checks; HTTPS cookies are Secure, HttpOnly, SameSite and __Host scoped.
+Google signatures, issuer, audience, expiry, verified email, state/nonce and PKCE are checked. Seven-day opaque sessions are stored as hashes in the database. Logout revokes them. No application email allowlist applies: any cryptographically verified Google account with a verified email can sign in. Signing in does not grant Markaz membership or record access; existing onboarding, invitation and role checks apply. Caller hosting/forwarding/fixture headers cannot authenticate. Origins govern redirects and CSRF checks; HTTPS cookies are Secure, HttpOnly, SameSite and __Host scoped.
 
 ## Backups, existing data and release gate
 
@@ -113,4 +112,4 @@ Use Turso's database-scoped **Download SQLite File** export or documented backup
 
 Existing hosting identities and Google subject IDs differ. Do not merge accounts automatically by name/email. The old database has not been transferred; any real-data migration requires an explicit identity/data plan and authorized trial restore.
 
-After private configuration, deploy the verified commit and inspect actual logs. Verify direct health 200, real Google login/logout, rejected forged/expired/revoked sessions, intended permissions, imports/history/export, and a 2/3/1-day route across three masajid. Confirm actual Turso persistence after Render restart/spindown/redeploy, export/isolated restore, and desktop/mobile behavior. Record the real URL, deployed commit and evidence. Local passes do not close these live gates.
+After private configuration, deploy the verified commit and inspect actual logs. Verify direct health 200, real Google login/logout, rejected forged/expired/revoked sessions, new-account isolation and intended permissions, imports/history/export, and a 2/3/1-day route across three masajid. Confirm actual Turso persistence after Render restart/spindown/redeploy, export/isolated restore, and desktop/mobile behavior. Record the real URL, deployed commit and evidence. Local passes do not close these live gates.

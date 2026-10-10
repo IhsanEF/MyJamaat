@@ -119,7 +119,6 @@ async function session(label, test, extraFixture, empty=false, recovery={}) {
       env.TURSO_DATABASE_URL=tursoRuntime?`file:${path.join(directory,"render.sqlite")}`:"";env.TURSO_AUTH_TOKEN="";
       env.SQLITE_PATH=path.join(directory,"render.sqlite");env.PORT=String(workerPort);env.PUBLIC_ORIGIN=base;
       env.GOOGLE_CLIENT_ID="synthetic-client";env.GOOGLE_CLIENT_SECRET="synthetic-not-a-credential";
-      env.ALLOWED_SIGN_IN_EMAILS=personas.filter(row=>row.authId).map(row=>row.email).join(",");
     }
     worker=spawn(process.execPath,[nodeRuntime?"scripts/start-render.mjs":"audit/worker.mjs"],{cwd:root,env:{...process.env,...env},stdio:["ignore","pipe","pipe"]});
     for (const stream of [worker.stdout,worker.stderr]) stream.on("data",chunk=>logs.push(String(chunk)));
