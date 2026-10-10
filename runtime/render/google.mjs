@@ -28,14 +28,16 @@ export async function authRoute(request) {
   if (!safeEqual(body.get('csrf'), readCookie(request.headers.get('cookie'),cookieName('csrf')))) return page('Request declined',`<p>This form expired. <a href="${url.pathname}">Try again</a>.</p>`,403);
   const returnTo = safeReturnTo(body.get('return_to') ?? '/');
   if (url.pathname === '/signout') {
-    revokeSession(request.headers.get('cookie'));
+    await revokeSession(request.headers.get('cookie'));
     return new Response(null,{status:303,headers:{location:returnTo,'set-cookie':cookie('session','',0)}});
   }
   const state = randomToken(), nonce = randomToken(), verifier = randomToken();
-  const sqlite = getDatabase().sqlite;
-  sqlite.prepare('DELETE FROM render_login_attempts WHERE expires_at<=?').run(Date.now());
-  if (sqlite.prepare('SELECT COUNT(*) AS n FROM render_login_attempts').get().n >= 500) return page('Please try later','<p>Sign-in is busy. Please try again in a few minutes.</p>',429);
-  sqlite.prepare('INSERT INTO render_login_attempts VALUES (?,?,?,?,?)').run(sha256(state),nonce,verifier,returnTo,Date.now()+600000);
+  const db = getDatabase();
+  const attempts = await db.batch([
+    db.prepare('DELETE FROM render_login_attempts WHERE expires_at<=?').bind(Date.now()),
+    db.prepare('INSERT INTO render_login_attempts SELECT ?,?,?,?,? WHERE (SELECT COUNT(*) FROM render_login_attempts)<500 RETURNING state_hash').bind(sha256(state),nonce,verifier,returnTo,Date.now()+600000),
+  ]);
+  if (!attempts[1].results.length) return page('Please try later','<p>Sign-in is busy. Please try again in a few minutes.</p>',429);
   const destination = client().generateAuthUrl({scope:['openid','email','profile'], state, nonce, code_challenge:sha256Base64(verifier), code_challenge_method:'S256', prompt:'select_account'});
   return new Response(null,{status:303,headers:{location:destination,'set-cookie':cookie('login',state,600)}});
 }
@@ -45,8 +47,7 @@ const sha256Base64 = value => Buffer.from(sha256(value),'hex').toString('base64u
 export async function googleCallback(request, oauth = client()) {
   const url = new URL(request.url), state = url.searchParams.get('state'), code = url.searchParams.get('code');
   if (request.method !== 'GET' || !state || !safeEqual(state,readCookie(request.headers.get('cookie'),cookieName('login')))) return page('Sign-in failed','<p>Sign-in expired or could not be verified. <a href="/signin">Try again</a>.</p>',400);
-  const sqlite = getDatabase().sqlite;
-  const attempt = sqlite.prepare('DELETE FROM render_login_attempts WHERE state_hash=? RETURNING *').get(sha256(state));
+  const attempt = await getDatabase().prepare('DELETE FROM render_login_attempts WHERE state_hash=? RETURNING *').bind(sha256(state)).first();
   if (!attempt || attempt.expires_at <= Date.now() || !code || code.length > 4096) return page('Sign-in failed','<p>Sign-in expired. <a href="/signin">Try again</a>.</p>',400);
   try {
     const { tokens } = await oauth.getToken({ code, codeVerifier:attempt.verifier, redirect_uri:`${origin()}/auth/google/callback` });
@@ -54,8 +55,8 @@ export async function googleCallback(request, oauth = client()) {
     const ticket = await oauth.verifyIdToken({ idToken:tokens.id_token, audience:process.env.GOOGLE_CLIENT_ID });
     const user = ticket.getPayload();
     if (!user?.sub || user.nonce !== attempt.nonce || !user.email || user.email_verified !== true || !allowedEmails().has(user.email.toLowerCase())) return page('Access not enabled','<p>This Google account has not been enabled for the pilot. Contact your Markaz organizer.</p>',403);
-    revokeSession(request.headers.get('cookie'));
-    const token = createSession({userId:`google:${user.sub}`,email:user.email,fullName:user.name??null});
+    await revokeSession(request.headers.get('cookie'));
+    const token = await createSession({userId:`google:${user.sub}`,email:user.email,fullName:user.name??null});
     const headers = new Headers({location:attempt.return_to,'cache-control':'no-store'});
     headers.append('set-cookie',cookie('session',token,604800));
     headers.append('set-cookie',cookie('login','',0));

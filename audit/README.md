@@ -4,18 +4,19 @@ Use the pinned Node 24.19.0 runtime. Fixtures contain synthetic identities and r
 
 Install dependencies with `npm run install:ci`.
 
-## Render target
+## Render Free / Turso target
 
 ```sh
 npm run build:render
-node audit/render-runtime-test.mjs
+node audit/turso-storage-test.mjs
+node audit/render-runtime-test.mjs --libsql
 node audit/route-planning-test.mjs
-node audit/repair-test.mjs all --runtime=node --output=/tmp/my-jamaat-render-verification.json
+node audit/repair-test.mjs all --runtime=turso --output=/tmp/my-jamaat-turso-verification.json
 ```
 
-The runtime tests use synthetic signed Google tokens with the official verifier and stubbed provider transport. They test local restart and consistent backup/isolated restore, and do not claim live Google login or Render disk persistence.
+The runtime tests use synthetic signed Google tokens with the official verifier and stubbed provider transport. They use the official libSQL client on disposable local files. They test local restart and local backup/isolated restore, and do not claim live Google login, cloud transport, Turso recovery or Render restart persistence. Run without --libsql to verify the original local Node SQLite adapter.
 
-`node audit/render-browser-server.mjs` prints a disposable persona URL. Its isolated proxy supplies random database-backed session cookies; the production server verifies them. Stop it with Ctrl+C to delete temporary storage. Never deploy the audit proxy.
+`node audit/render-browser-server.mjs --libsql` prints a disposable persona URL. Its isolated proxy supplies random database-backed session cookies; the production server verifies them. Stop it with Ctrl+C to delete temporary storage. Never deploy the audit proxy.
 
 ## Existing Cloudflare target
 

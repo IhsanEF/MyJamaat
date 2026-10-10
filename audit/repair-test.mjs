@@ -19,14 +19,15 @@ if (!["all", "daily", "authorization-baseline", "isolation", "dependency-smoke",
   throw new Error("Select all, daily, authorization-baseline, isolation, dependency-smoke, validation, ameer, permissions, revocation, resolution, onboarding, import, privacy, time, route, series, mashwara, ijtema, baraka, or recorded.");
 }
 const reproduce=process.argv.includes("--reproduce");
-const nodeRuntime=process.argv.includes("--runtime=node");
+const tursoRuntime=process.argv.includes("--runtime=turso");
+const nodeRuntime=process.argv.includes("--runtime=node")||tursoRuntime;
 const outputArg = process.argv.find(value => value.startsWith("--output="));
 const output = outputArg ? path.resolve(outputArg.slice(9)) : path.join(root, "audit/repair-task-01-verification.json");
 const sha256 = file => createHash("sha256").update(readFileSync(path.join(root, file))).digest("hex");
 const buildHash = nodeRuntime ? createHash("sha256").update(readdirSync(path.join(root,"dist"),{recursive:true}).filter(name=>/\.(?:js|mjs|json|css)$/.test(String(name))).sort().map(name=>String(name)+readFileSync(path.join(root,"dist",name),"utf8")).join("\n")).digest("hex") : sha256("dist/server/index.js");
 const sourceHash = sha256("app/api/app/route.ts");
 const runtimeHash = nodeRuntime ? createHash("sha256").update([...readdirSync(path.join(root,"runtime/render")).map(name=>`runtime/render/${name}`),"lib/request-bounds.ts","lib/response-policy.ts"].sort().map(name=>name+readFileSync(path.join(root,name),"utf8")).join("\n")).digest("hex") : null;
-const result = {suite, runtimeHash, runtime:nodeRuntime?"node":"cloudflare", startedAt:new Date().toISOString(), sourceHash, buildHash, classifications:[], sessions:[], errors:[]};
+const result = {suite, runtimeHash, runtime:tursoRuntime?"libsql-local":nodeRuntime?"node":"cloudflare", startedAt:new Date().toISOString(), sourceHash, buildHash, classifications:[], sessions:[], errors:[]};
 
 function command(args, env={}) {
   if(nodeRuntime && args.includes("d1") && args.includes("execute")) {
@@ -115,6 +116,7 @@ async function session(label, test, extraFixture, empty=false, recovery={}) {
       db.close();
       env.AUDIT_SESSION_FILE=path.join(directory,"sessions.json");
       writeFileSync(env.AUDIT_SESSION_FILE,JSON.stringify(tokens),{mode:0o600});
+      env.TURSO_DATABASE_URL=tursoRuntime?`file:${path.join(directory,"render.sqlite")}`:"";env.TURSO_AUTH_TOKEN="";
       env.SQLITE_PATH=path.join(directory,"render.sqlite");env.PORT=String(workerPort);env.PUBLIC_ORIGIN=base;
       env.GOOGLE_CLIENT_ID="synthetic-client";env.GOOGLE_CLIENT_SECRET="synthetic-not-a-credential";
       env.ALLOWED_SIGN_IN_EMAILS=personas.filter(row=>row.authId).map(row=>row.email).join(",");

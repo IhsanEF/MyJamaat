@@ -11,7 +11,11 @@ export function validateConfiguration() {
   if (url.protocol !== 'https:' && !(url.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(url.hostname))) throw new Error('PUBLIC_ORIGIN requires HTTPS outside localhost.');
   if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) throw new Error('Google OAuth client configuration is required.');
   if (!allowedEmails().size) throw new Error('ALLOWED_SIGN_IN_EMAILS is required for the pilot.');
-  if (process.env.RENDER && !process.env.SQLITE_PATH?.startsWith('/var/data/')) throw new Error('Render SQLITE_PATH must be on the /var/data persistent disk.');
+  if (process.env.TURSO_DATABASE_URL) {
+    const databaseUrl = new URL(process.env.TURSO_DATABASE_URL);
+    if (!['libsql:', 'https:', ...(process.env.RENDER ? [] : ['file:'])].includes(databaseUrl.protocol) || databaseUrl.username || databaseUrl.password || databaseUrl.search || databaseUrl.hash) throw new Error('Invalid Turso database URL.');
+    if (databaseUrl.protocol !== 'file:' && !process.env.TURSO_AUTH_TOKEN) throw new Error('TURSO_AUTH_TOKEN is required.');
+  } else if (process.env.RENDER && !process.env.SQLITE_PATH?.startsWith('/var/data/')) throw new Error('Render requires remote Turso storage or an attached /var/data disk.');
 }
 export function allowedEmails() {
   return new Set((process.env.ALLOWED_SIGN_IN_EMAILS ?? '').split(',').map(email => email.trim().toLowerCase()).filter(Boolean));
@@ -35,21 +39,23 @@ export function safeReturnTo(value = '/') {
   if (url.origin !== 'https://app.local' || /^\/(?:signin|signout|auth|callback|signin-with-chatgpt|signout-with-chatgpt)(?:\/|$)/.test(url.pathname)) return '/';
   return `${url.pathname}${url.search}`;
 }
-export function verifiedUser(header) {
+export async function verifiedUser(header) {
   const token = readCookie(header, cookieName('session'));
   if (!token || !/^[A-Za-z0-9_-]{43}$/.test(token)) return null;
-  const session = getDatabase().sqlite.prepare('SELECT * FROM render_sessions WHERE token_hash=? AND expires_at>?').get(sha256(token), Date.now());
+  const session = await getDatabase().prepare('SELECT * FROM render_sessions WHERE token_hash=? AND expires_at>?').bind(sha256(token), Date.now()).first();
   if (!session || !allowedEmails().has(session.email.toLowerCase())) return null;
   return { userId: session.user_id, email: session.email, fullName: session.full_name, displayName: session.full_name || session.email };
 }
-export function createSession(user) {
+export async function createSession(user) {
   const token = randomToken();
-  const sqlite = getDatabase().sqlite;
-  sqlite.prepare('DELETE FROM render_sessions WHERE expires_at<=?').run(Date.now());
-  sqlite.prepare('INSERT INTO render_sessions VALUES (?,?,?,?,?)').run(sha256(token), user.userId, user.email, user.fullName ?? null, Date.now() + 7*86400000);
+  const db = getDatabase();
+  await db.batch([
+    db.prepare('DELETE FROM render_sessions WHERE expires_at<=?').bind(Date.now()),
+    db.prepare('INSERT INTO render_sessions VALUES (?,?,?,?,?)').bind(sha256(token), user.userId, user.email, user.fullName ?? null, Date.now() + 7*86400000),
+  ]);
   return token;
 }
-export function revokeSession(header) {
+export async function revokeSession(header) {
   const token = readCookie(header, cookieName('session'));
-  if (token) getDatabase().sqlite.prepare('DELETE FROM render_sessions WHERE token_hash=?').run(sha256(token));
+  if (token) await getDatabase().prepare('DELETE FROM render_sessions WHERE token_hash=?').bind(sha256(token)).run();
 }

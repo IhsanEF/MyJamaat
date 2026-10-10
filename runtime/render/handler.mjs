@@ -23,7 +23,7 @@ export async function handleRequest(incoming, framework) {
   try {
     if (url.pathname === '/api/health') {
       if (!['GET','HEAD'].includes(request.method)) response = new Response(null,{status:405,headers:{allow:'GET, HEAD'}});
-      else { getDatabase().sqlite.prepare('SELECT 1').get(); response=Response.json({status:'ok'}); }
+      else { await getDatabase().prepare('SELECT 1').first(); response=Response.json({status:'ok'}); }
     } else response = await authRoute(request) ?? await framework(request);
   } catch { response = Response.json({error:'Service temporarily unavailable.'},{status:503}); }
   finally {

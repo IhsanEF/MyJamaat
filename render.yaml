@@ -1,5 +1,5 @@
-# Applying this Blueprint creates paid compute and storage. Review the charges
-# in Render before creating it. This file itself does not create a service.
+# Free web compute with externally persisted Turso storage. Secrets are entered
+# privately in Render. Do not enable paid compute, disks, or usage overages.
 services:
   - type: web
     name: my-jamaat
@@ -7,21 +7,19 @@ services:
     repo: https://github.com/IhsanEF/MyJamaat
     branch: main
     region: oregon
-    plan: starter
+    plan: free
     numInstances: 1
     autoDeployTrigger: off
     buildCommand: npm run install:ci && npm run build:render
     startCommand: npm run start:render
     healthCheckPath: /api/health
-    disk:
-      name: my-jamaat-data
-      mountPath: /var/data
-      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
-      - key: SQLITE_PATH
-        value: /var/data/my-jamaat.sqlite
+      - key: TURSO_DATABASE_URL
+        sync: false
+      - key: TURSO_AUTH_TOKEN
+        sync: false
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
