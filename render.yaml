@@ -2,7 +2,7 @@
 # privately in Render. Do not enable paid compute, disks, or usage overages.
 services:
   - type: web
-    name: my-jamaat
+    name: myjamaat
     runtime: node
     repo: https://github.com/IhsanEF/MyJamaat
     branch: main

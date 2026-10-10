@@ -63,7 +63,7 @@ The Blueprint is already in the public repository. Its presence does not create 
 |---|---|
 | Repository | `https://github.com/IhsanEF/MyJamaat` |
 | Branch | `main`, verified Turso integration commit |
-| Name | `my-jamaat` or an available equivalent |
+| Name | `myjamaat`; requested URL `https://myjamaat.onrender.com`, confirm actual address after service creation |
 | Language | Node |
 | Region | Oregon (US West), matching the selected database region |
 | Root Directory | Blank |
